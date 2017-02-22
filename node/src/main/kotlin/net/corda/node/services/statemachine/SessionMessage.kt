@@ -1,12 +1,13 @@
 package net.corda.node.services.statemachine
 
+import net.corda.core.abbreviate
 import net.corda.core.crypto.Party
 import net.corda.core.flows.FlowException
 import net.corda.core.utilities.UntrustworthyData
 
 interface SessionMessage
 
-data class SessionInit(val initiatorSessionId: Long, val flowName: String, val firstPayload: Any?) : SessionMessage
+data class SessionInit(val initiatorSessionId: Long, val flowName: String, val version: String, val firstPayload: Any?) : SessionMessage
 
 interface ExistingSessionMessage : SessionMessage {
     val recipientSessionId: Long
@@ -20,7 +21,7 @@ interface SessionInitResponse : ExistingSessionMessage {
     val initiatorSessionId: Long
     override val recipientSessionId: Long get() = initiatorSessionId
 }
-data class SessionConfirm(override val initiatorSessionId: Long, val initiatedSessionId: Long) : SessionInitResponse
+data class SessionConfirm(override val initiatorSessionId: Long, val initiatedSessionId: Long, val flowName: String, val version: String) : SessionInitResponse
 data class SessionReject(override val initiatorSessionId: Long, val errorMessage: String) : SessionInitResponse
 
 interface SessionEnd : ExistingSessionMessage
