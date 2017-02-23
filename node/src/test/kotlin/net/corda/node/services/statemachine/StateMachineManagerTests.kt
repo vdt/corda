@@ -374,7 +374,7 @@ class StateMachineManagerTests {
 
     @Test
     fun `other side ends before doing expected send`() {
-        node2.services.registerFlowInitiator(ReceiveFlow::class) { NoOpFlow() }
+        node2.services.registerFlowInitiator(ReceiveFlow::class, { NoOpFlow() })
         val resultFuture = node1.services.startFlow(ReceiveFlow(node2.info.legalIdentity)).resultFuture
         net.runNetwork()
         assertThatExceptionOfType(FlowSessionException::class.java).isThrownBy {
@@ -411,7 +411,7 @@ class StateMachineManagerTests {
 
         assertSessionTransfers(
                 node1 sent sessionInit(ReceiveFlow::class) to node2,
-                node2 sent sessionConfirm to node1,
+                node2 sent sessionConfirm(ExceptionFlow::class) to node1,
                 node2 sent erroredEnd() to node1
         )
     }
@@ -566,9 +566,9 @@ class StateMachineManagerTests {
         ptx.signWith(node1.services.legalIdentityKey)
         val stx = ptx.toSignedTransaction()
 
-        node1.services.registerFlowInitiator(WaitingFlows.Waiter::class) {
+        node1.services.registerFlowInitiator(WaitingFlows.Waiter::class, {
             WaitingFlows.Committer(it) { throw Exception("Error") }
-        }
+        })
         val waiter = node2.services.startFlow(WaitingFlows.Waiter(stx, node1.info.legalIdentity)).resultFuture
         net.runNetwork()
         assertThatExceptionOfType(FlowSessionException::class.java).isThrownBy {
@@ -654,7 +654,8 @@ class StateMachineManagerTests {
                 .toFuture()
     }
 
-    private class NoOpFlow(val nonTerminating: Boolean = false) : DefaultFlowVersion<Unit>() {
+    @FlowVersion("1.0", "SendReceiveFlow", arrayOf("1.0"))
+    private class NoOpFlow(val nonTerminating: Boolean = false) : FlowLogic<Unit>() {
         @Transient var flowStarted = false
 
         @Suspendable
@@ -737,7 +738,8 @@ class StateMachineManagerTests {
     }
 
     private object WaitingFlows {
-        class Waiter(val stx: SignedTransaction, val otherParty: Party) : DefaultFlowVersion<SignedTransaction>() {
+        @FlowVersion("1.0", "WaitingFlows", arrayOf("1.0"))
+        class Waiter(val stx: SignedTransaction, val otherParty: Party) : FlowLogic<SignedTransaction>() {
             @Suspendable
             override fun call(): SignedTransaction {
                 send(otherParty, stx)
@@ -745,7 +747,8 @@ class StateMachineManagerTests {
             }
         }
 
-        class Committer(val otherParty: Party, val throwException: (() -> Exception)? = null) : DefaultFlowVersion<SignedTransaction>() {
+        @FlowVersion("1.0", "WaitingFlows", arrayOf("1.0"))
+        class Committer(val otherParty: Party, val throwException: (() -> Exception)? = null) : FlowLogic<SignedTransaction>() {
             @Suspendable
             override fun call(): SignedTransaction {
                 val stx = receive<SignedTransaction>(otherParty).unwrap { it }

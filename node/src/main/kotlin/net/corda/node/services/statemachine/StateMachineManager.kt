@@ -71,6 +71,7 @@ class StateMachineManager(val serviceHub: ServiceHubInternal,
     companion object {
         private val logger = loggerFor<StateMachineManager>()
         internal val sessionTopic = TopicSession("platform.session")
+
         init {
             Fiber.setDefaultUncaughtExceptionHandler { fiber, throwable ->
                 (fiber as FlowStateMachineImpl<*>).logger.error("Caught exception from flow", throwable)
@@ -93,12 +94,13 @@ class StateMachineManager(val serviceHub: ServiceHubInternal,
         var started = false
         val stateMachines = LinkedHashMap<FlowStateMachineImpl<*>, Checkpoint>()
         val changesPublisher = PublishSubject.create<Change>()!!
-        val fibersWaitingForLedgerCommit = HashMultimap.create<SecureHash,  FlowStateMachineImpl<*>>()!!
+        val fibersWaitingForLedgerCommit = HashMultimap.create<SecureHash, FlowStateMachineImpl<*>>()!!
 
         fun notifyChangeObservers(fiber: FlowStateMachineImpl<*>, addOrRemove: AddOrRemove) {
             changesPublisher.bufferUntilDatabaseCommit().onNext(Change(fiber.logic, addOrRemove, fiber.id))
         }
     }
+
     private val mutex = ThreadBox(InnerState())
 
     // True if we're shutting down, so don't resume anything.
@@ -544,41 +546,4 @@ class StateMachineManager(val serviceHub: ServiceHubInternal,
         logger.trace { "Sending $message to party $party @ $address" }
         serviceHub.networkService.send(sessionTopic, message, address)
     }
-
-// TODO after rebase it was removed
-//    /**
-//     * [FlowSessionState] describes the session's state.
-//     *
-//     * [Initiating] is pre-handshake. [Initiating.otherParty] at this point holds a [Party] corresponding to either a
-//     *     specific peer or a service.
-//     * [Initiated] is post-handshake. At this point [Initiating.otherParty] will have been resolved to a specific peer
-//     *     [Initiated.peerParty], and the peer's sessionId has been initialised.
-//     */
-//    sealed class FlowSessionState {
-//        abstract val sendToParty: Party
-//        class Initiating(
-//                val otherParty: Party /** This may be a specific peer or a service party */
-//        ) : FlowSessionState() {
-//            override val sendToParty: Party get() = otherParty
-//        }
-//        class Initiated(
-//                val peerParty: Party, /** This must be a peer party */
-//                val peerSessionId: Long
-//        ) : FlowSessionState() {
-//            override val sendToParty: Party get() = peerParty
-//        }
-//    }
-//
-//    data class FlowSession(
-//            val flow: FlowLogic<*>,
-//            val ourSessionId: Long,
-//            val initiatingParty: Party?,
-//            var state: FlowSessionState,
-//            val chosenFlowName: String,
-//            var flowVersion: String,
-//            @Volatile var waitingForResponse: Boolean = false
-//    ) {
-//        val receivedMessages = ConcurrentLinkedQueue<ReceivedSessionMessage<ExistingSessionMessage>>()
-//        val fiber: FlowStateMachineImpl<*> get() = flow.stateMachine as FlowStateMachineImpl<*>
-//    }
 }
