@@ -2,7 +2,11 @@ package net.corda.services.messaging
 
 import co.paralleluniverse.fibers.Suspendable
 import com.google.common.net.HostAndPort
+<<<<<<< HEAD
 import net.corda.nodeapi.config.SSLConfiguration
+=======
+import net.corda.config.SSLConfiguration
+>>>>>>> Add node-api, split minimal node functionality, OutOfProcessTransactionVerifierService
 import net.corda.core.crypto.Party
 import net.corda.core.crypto.composite
 import net.corda.core.crypto.generateKeyPair
@@ -14,6 +18,10 @@ import net.corda.core.seconds
 import net.corda.core.utilities.unwrap
 import net.corda.node.internal.Node
 import net.corda.node.services.User
+<<<<<<< HEAD
+=======
+import net.corda.node.services.config.configureTestSSL
+>>>>>>> Add node-api, split minimal node functionality, OutOfProcessTransactionVerifierService
 import net.corda.node.services.messaging.ArtemisMessagingComponent.Companion.CLIENTS_PREFIX
 import net.corda.node.services.messaging.ArtemisMessagingComponent.Companion.INTERNAL_PREFIX
 import net.corda.node.services.messaging.ArtemisMessagingComponent.Companion.NETWORK_MAP_QUEUE
@@ -82,7 +90,7 @@ abstract class MQSecurityTest : NodeBasedTest() {
     }
 
     @Test
-    fun `create queue for peer which has not been communciated with`() {
+    fun `create queue for peer which has not been communicated with`() {
         val bob = startNode("Bob").getOrThrow()
         assertAllQueueCreationAttacksFail("$PEERS_PREFIX${bob.info.legalIdentity.owningKey.toBase58String()}")
     }

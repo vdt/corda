@@ -18,6 +18,7 @@ import net.corda.core.utilities.loggerFor
 import net.corda.node.services.User
 import net.corda.node.services.config.ConfigHelper
 import net.corda.node.services.config.FullNodeConfiguration
+import net.corda.node.services.config.VerifierType
 import net.corda.node.services.messaging.ArtemisMessagingComponent
 import net.corda.node.services.messaging.CordaRPCClient
 import net.corda.node.services.messaging.NodeMessagingClient
@@ -67,6 +68,7 @@ interface DriverDSLExposedInterface {
     fun startNode(providedName: String? = null,
                   advertisedServices: Set<ServiceInfo> = emptySet(),
                   rpcUsers: List<User> = emptyList(),
+                  verifierType: VerifierType = VerifierType.InMemory,
                   customOverrides: Map<String, Any?> = emptyMap()): ListenableFuture<NodeHandle>
 
     /**
@@ -82,6 +84,7 @@ interface DriverDSLExposedInterface {
             notaryName: String,
             clusterSize: Int = 3,
             type: ServiceType = RaftValidatingNotaryService.type,
+            verifierType: VerifierType = VerifierType.InMemory,
             rpcUsers: List<User> = emptyList()): Future<Pair<Party, List<NodeHandle>>>
 
     /**
@@ -388,8 +391,13 @@ class DriverDSL(
         }
     }
 
-    override fun startNode(providedName: String?, advertisedServices: Set<ServiceInfo>,
-                           rpcUsers: List<User>, customOverrides: Map<String, Any?>): ListenableFuture<NodeHandle> {
+    override fun startNode(
+            providedName: String?,
+            advertisedServices: Set<ServiceInfo>,
+            rpcUsers: List<User>,
+            verifierType: VerifierType,
+            customOverrides: Map<String, Any?>
+    ): ListenableFuture<NodeHandle> {
         val p2pAddress = portAllocation.nextHostAndPort()
         val rpcAddress = portAllocation.nextHostAndPort()
         val webAddress = portAllocation.nextHostAndPort()
@@ -414,7 +422,8 @@ class DriverDSL(
                             "password" to it.password,
                             "permissions" to it.permissions
                     )
-                }
+                },
+                "verifierType" to verifierType.name
         ) + customOverrides
 
         val configuration = FullNodeConfiguration(
@@ -442,6 +451,7 @@ class DriverDSL(
             notaryName: String,
             clusterSize: Int,
             type: ServiceType,
+            verifierType: VerifierType,
             rpcUsers: List<User>
     ): ListenableFuture<Pair<Party, List<NodeHandle>>> {
         val nodeNames = (1..clusterSize).map { "Notary Node $it" }
@@ -453,12 +463,12 @@ class DriverDSL(
         val notaryClusterAddress = portAllocation.nextHostAndPort()
 
         // Start the first node that will bootstrap the cluster
-        val firstNotaryFuture = startNode(nodeNames.first(), advertisedService, rpcUsers, mapOf("notaryNodeAddress" to notaryClusterAddress.toString()))
+        val firstNotaryFuture = startNode(nodeNames.first(), advertisedService, rpcUsers, verifierType, mapOf("notaryNodeAddress" to notaryClusterAddress.toString()))
         // All other nodes will join the cluster
         val restNotaryFutures = nodeNames.drop(1).map {
             val nodeAddress = portAllocation.nextHostAndPort()
             val configOverride = mapOf("notaryNodeAddress" to nodeAddress.toString(), "notaryClusterAddresses" to listOf(notaryClusterAddress.toString()))
-            startNode(it, advertisedService, rpcUsers, configOverride)
+            startNode(it, advertisedService, rpcUsers, verifierType, configOverride)
         }
 
         return firstNotaryFuture.flatMap { firstNotary ->
