@@ -656,7 +656,6 @@ class VaultSchemaTest {
         """
 
         val statement = jdbcConn.createStatement()
-        println(selectForUpdateStatement)
         val rs = statement.executeQuery(selectForUpdateStatement)
         while (rs.next()) {
             val txHash = SecureHash.parse(rs.getString(1))
@@ -666,7 +665,6 @@ class VaultSchemaTest {
              UPDATE VAULT_STATES SET lock_id = '$lockId', lock_timestamp = '${Instant.now()}'
              WHERE (transaction_id = '$txHash' AND output_index = $index)
         """
-            println(updateStatement)
             statement.executeUpdate(updateStatement)
         }
 
