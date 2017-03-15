@@ -156,7 +156,7 @@ class MockNetwork(private val networkSendManuallyPumped: Boolean = false,
         override fun makeVaultService(dataSourceProperties: Properties): VaultService = NodeVaultService(services, dataSourceProperties)
 
         override fun makeKeyManagementService(): KeyManagementService {
-            return E2ETestKeyManagementService(partyKeys + (overrideServices?.values ?: emptySet()))
+            return E2ETestKeyManagementService(services, partyKeys + (overrideServices?.values ?: emptySet()))
         }
 
         override fun startMessagingService(rpcOps: RPCOps) {

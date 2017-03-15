@@ -425,7 +425,7 @@ abstract class AbstractNode(open val configuration: NodeConfiguration,
                 "has any other map node been configured.")
     }
 
-    protected open fun makeKeyManagementService(): KeyManagementService = PersistentKeyManagementService(partyKeys)
+    protected open fun makeKeyManagementService(): KeyManagementService = PersistentKeyManagementService(services, partyKeys)
 
     open protected fun makeNetworkMapService() {
         inNodeNetworkMapService = PersistentNetworkMapService(services)

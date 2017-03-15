@@ -30,6 +30,7 @@ import java.security.KeyPair
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.time.Clock
+import java.time.Instant
 import java.util.*
 import java.util.jar.JarInputStream
 import javax.annotation.concurrent.ThreadSafe
@@ -85,6 +86,7 @@ class MockIdentityService(val identities: List<Party>) : IdentityService, Single
 
 class MockKeyManagementService(vararg initialKeys: KeyPair) : SingletonSerializeAsToken(), KeyManagementService {
     override val keys: MutableMap<PublicKey, PrivateKey> = initialKeys.associateByTo(HashMap(), { it.public }, { it.private })
+    val expectedRequests = HashMap<Pair<Party, Long>, Instant>()
 
     val nextKeys = LinkedList<KeyPair>()
 
@@ -92,6 +94,18 @@ class MockKeyManagementService(vararg initialKeys: KeyPair) : SingletonSerialize
         val k = nextKeys.poll() ?: generateKeyPair()
         keys[k.public] = k.private
         return k
+    }
+
+    override fun expectKeyRequest(otherSide: Party, nonce: Long, timeout: Instant) {
+        require(timeout.isAfter(Instant.now()))
+        expectedRequests[Pair(otherSide, nonce)] = timeout
+    }
+
+    override fun verifyKeyRequest(otherSide: Party, nonce: Long) {
+        val timeout = expectedRequests.remove(Pair(otherSide, nonce))
+        if (timeout == null || timeout.isBefore(Instant.now())) {
+            throw IllegalArgumentException("No registered key requests for that party/data combination")
+        }
     }
 }
 

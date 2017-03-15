@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import net.corda.core.contracts.*
 import net.corda.core.crypto.*
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.toFuture
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
@@ -12,6 +13,8 @@ import java.io.InputStream
 import java.security.KeyPair
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.time.Duration
+import java.time.Instant
 import java.util.*
 
 /**
@@ -234,6 +237,26 @@ inline fun <reified T : DealState> VaultService.dealsWith(party: AbstractParty) 
 interface KeyManagementService {
     /** Returns a snapshot of the current pubkey->privkey mapping. */
     val keys: Map<PublicKey, PrivateKey>
+
+    /**
+     * Register that the service should expect a key request from the given party, and fulfil the request when received.
+     * This is used rather than accepting any request made from any party to avoid risk of a DoS attack by forcing a node
+     * to consume resources (CPU, entropy, storage) generating keys.
+     *
+     * @param otherSide the party to accept a request from.
+     * @param nonce a blob of data the party must present along with the request, to identify the request.
+     * @param timeout a timeout on the request registration, so that they are not kept indefinitely.
+     */
+    fun expectKeyRequest(otherSide: Party, nonce: Long, timeout: Instant)
+    fun expectKeyRequest(otherSide: Party, nonce: Long, timeout: Duration) = expectKeyRequest(otherSide, nonce, Instant.now().plus(timeout))
+
+    /**
+     * Verify that we are expecting a key request from the given party, with the provided data.
+     *
+     * @throws IllegalArgumentException if we are not expecting this request.
+     */
+    @Throws(IllegalArgumentException::class)
+    fun verifyKeyRequest(otherSide: Party, nonce: Long)
 
     fun toPrivate(publicKey: PublicKey) = keys[publicKey] ?: throw IllegalStateException("No private key known for requested public key ${publicKey.toStringShort()}")
 
