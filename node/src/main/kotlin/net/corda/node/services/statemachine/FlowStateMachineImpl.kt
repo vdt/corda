@@ -29,6 +29,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 class FlowStateMachineImpl<R>(override val id: StateMachineRunId,
                               val logic: FlowLogic<R>,
@@ -90,6 +91,7 @@ class FlowStateMachineImpl<R>(override val id: StateMachineRunId,
     override fun run() {
         createTransaction()
         logger.debug { "Calling flow: $logic" }
+        val startTime = System.nanoTime()
         val result = try {
             logic.call()
         } catch (e: FlowException) {
@@ -102,6 +104,8 @@ class FlowStateMachineImpl<R>(override val id: StateMachineRunId,
             logger.warn("Terminated by unexpected exception", t)
             processException(t, false)
             return
+        } finally {
+            recordDuration(startTime)
         }
 
         // Only sessions which have a single send and nothing else will block here
@@ -277,7 +281,6 @@ class FlowStateMachineImpl<R>(override val id: StateMachineRunId,
     }
 
     @Suspendable
-
     private fun <M : ExistingSessionMessage> waitForMessage(receiveRequest: ReceiveRequest<M>): ReceivedSessionMessage<M> {
         return receiveRequest.suspendAndExpectReceive().confirmReceiveType(receiveRequest)
     }
@@ -380,5 +383,17 @@ class FlowStateMachineImpl<R>(override val id: StateMachineRunId,
         } catch (t: Throwable) {
             logger.error("Error during resume", t)
         }
+    }
+
+    /**
+     * Records the duration of this flow – from call() to completion or failure.
+     * Note that the duration will include the time the flow spent being parked, and not just the total
+     * execution time.
+     */
+    private fun recordDuration(startTime: Long) {
+        val timer = serviceHub.monitoringService.metrics.timer("FlowDuration.${logic.javaClass}")
+        // Start time gets serialized along with the fiber when it suspends
+        val duration = System.nanoTime() - startTime
+        timer.update(duration, TimeUnit.NANOSECONDS)
     }
 }
