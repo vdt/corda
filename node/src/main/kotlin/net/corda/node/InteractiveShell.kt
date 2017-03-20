@@ -121,7 +121,7 @@ object InteractiveShell {
                 "node" to node,
                 "services" to node.services,
                 "ops" to node.rpcOps,
-                "mapper" to shellObjectMapper
+                "mapper" to yamlInputMapper
         ))
         bootstrap.bootstrap()
 
@@ -154,11 +154,9 @@ object InteractiveShell {
         }
     }
 
-    val shellObjectMapper: ObjectMapper by lazy {
+    private val yamlInputMapper: ObjectMapper by lazy {
         // Return a standard Corda Jackson object mapper, configured to use YAML by default and with extra
         // serializers.
-        //
-        // TODO: This should become the default renderer rather than something used specifically by commands.
         JacksonSupport.createInMemoryMapper(node.services.identityService, YAMLFactory())
     }
 
@@ -181,12 +179,8 @@ object InteractiveShell {
         })
     }
 
+    // TODO: This should become the default renderer rather than something used specifically by commands.
     private val yamlMapper by lazy { createOutputMapper(YAMLFactory()) }
-    private val jsonMapper by lazy { createOutputMapper(JsonFactory()) }
-
-    enum class RpcResponsePrintingFormat {
-        yaml, json, tostring
-    }
 
     /**
      * Called from the 'flow' shell command. Takes a name fragment and finds a matching flow, or prints out
@@ -247,7 +241,7 @@ object InteractiveShell {
     @Throws(NoApplicableConstructor::class)
     fun runFlowFromString(invoke: (FlowLogic<*>) -> FlowStateMachine<*>,
                           inputData: String, clazz: Class<out FlowLogic<*>>,
-                          om: ObjectMapper = shellObjectMapper): FlowStateMachine<*> {
+                          om: ObjectMapper = yamlInputMapper): FlowStateMachine<*> {
         // For each constructor, attempt to parse the input data as a method call. Use the first that succeeds,
         // and keep track of the reasons we failed so we can print them out if no constructors are usable.
         val parser = StringToMethodCallParser(clazz, om)
@@ -288,12 +282,8 @@ object InteractiveShell {
     }
 
     @JvmStatic
-    fun printAndFollowRPCResponse(outputFormat: RpcResponsePrintingFormat, response: Any?, toStream: PrintWriter): CompletableFuture<Unit>? {
-        val printerFun = when (outputFormat) {
-            RpcResponsePrintingFormat.yaml -> { obj: Any? -> yamlMapper.writeValueAsString(obj) }
-            RpcResponsePrintingFormat.json -> { obj: Any? -> jsonMapper.writeValueAsString(obj) }
-            RpcResponsePrintingFormat.tostring -> { obj: Any? -> Emoji.renderIfSupported { obj.toString() } }
-        }
+    fun printAndFollowRPCResponse(response: Any?, toStream: PrintWriter): CompletableFuture<Unit>? {
+        val printerFun = { obj: Any? -> yamlMapper.writeValueAsString(obj) }
         toStream.println(printerFun(response))
         toStream.flush()
         return maybeFollow(response, printerFun, toStream)
