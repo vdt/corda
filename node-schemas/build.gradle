@@ -43,6 +43,8 @@ sourceSets {
 
 dependencies {
     compile project(':core')
+    compile project(':finance')
+    testCompile project(':test-utils')
 
     // Requery: SQL based query & persistence for Kotlin
     kapt "io.requery:requery-processor:$requery_version"
